@@ -17,16 +17,16 @@ import (
 
 const maxSize = 5 * 1024 * 1024 // 5 MB in bytes
 
-type imagesList []string
+type fileList []string
 
-var _ flag.Value = &imagesList{}
+var _ flag.Value = &fileList{}
 
-func (i *imagesList) String() string {
-	return fmt.Sprintf("%v", *i)
+func (f *fileList) String() string {
+	return fmt.Sprintf("%v", *f)
 }
 
-func (i *imagesList) Set(value string) error {
-	*i = append(*i, value)
+func (f *fileList) Set(value string) error {
+	*f = append(*f, value)
 	return nil
 }
 
@@ -57,7 +57,6 @@ func downloadImage(path string) ([]byte, error) {
 		}
 
 		if fileInfo.Size() <= maxSize {
-
 			data, err = io.ReadAll(file)
 			if err != nil {
 				return nil, err
@@ -111,6 +110,7 @@ func downloadImage(path string) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
+
 		}
 
 	}

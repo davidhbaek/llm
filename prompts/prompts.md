@@ -1,5 +1,15 @@
 # prompts
 
-Save prompts in `.txt` files here by usecase
+### images
 
-Save images as `.png, .jpg, .gif` files
+Accepted image formats:
+- `jpg/jpeg`
+- `png`
+- `gif`
+- `webp`
+
+### docs
+
+Accepted document formats:
+- `.pdf`
+
