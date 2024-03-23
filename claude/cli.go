@@ -2,11 +2,12 @@ package claude
 
 import (
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -17,6 +18,7 @@ type env struct {
 	systemPrompt string
 	images       imagesList
 	startChat    bool
+	model        string
 }
 
 func (app *env) fromArgs(args []string) error {
@@ -27,23 +29,41 @@ func (app *env) fromArgs(args []string) error {
 
 	fl := flag.NewFlagSet("claude", flag.ContinueOnError)
 
-	userPrompt := fl.String("prompt", "", "the user prompt to send to Claude")
-	systemPrompt := fl.String("system", "", "the system prompt to send to Claude")
+	var prompt string
+	fl.StringVar(&prompt, "p", "", "user prompt to Claude")
+	fl.StringVar(&prompt, "prompt", "", "user prompt to Claude")
 
-	images := imagesList{}
+	var system string
+	fl.StringVar(&system, "s", "", "system prompt to  Claude")
+	fl.StringVar(&system, "system", "", "system prompt to  Claude")
+
+	var model string
+	fl.StringVar(&model, "m", "haiku", "the Claude model to use")
+	fl.StringVar(&model, "model", "haiku", "the Claude model to use")
+
+	var images imagesList
 	fl.Var(&images, "image", "list of image paths (filenames and URLs)")
-
-	startChat := fl.Bool("chat", false, "chat")
-	app.client = *NewClient(NewConfig("https://api.anthropic.com", os.Getenv("ANTHROPIC_API_KEY")))
 
 	if err := fl.Parse(args); err != nil {
 		return err
 	}
 
-	app.userPrompt = *userPrompt
-	app.systemPrompt = *systemPrompt
-	app.startChat = *startChat
+	modelMap := map[string]string{
+		"haiku":  HAIKU,
+		"sonnet": SONNET,
+		"opus":   OPUS,
+	}
+
+	claudeModel, ok := modelMap[model]
+	if !ok {
+		return errors.New("model must be one of [haiku, sonnet, opus]")
+	}
+
+	app.userPrompt = prompt
+	app.systemPrompt = system
 	app.images = images
+	app.model = claudeModel
+	app.client = *NewClient(NewConfig("https://api.anthropic.com", os.Getenv("ANTHROPIC_API_KEY")))
 
 	return nil
 }
@@ -52,12 +72,12 @@ func CLI(args []string) int {
 	app := env{}
 	err := app.fromArgs(args)
 	if err != nil {
-		fmt.Printf("parsing args: %s", err.Error())
+		fmt.Fprintf(os.Stderr, "parsing args: %v\n", err)
 		return 2
 	}
 
 	if err := app.run(); err != nil {
-		fmt.Fprintf(os.Stderr, "Runtime error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "runtime error: %v\n", err)
 		return 1
 
 	}
@@ -65,56 +85,47 @@ func CLI(args []string) int {
 }
 
 func (app *env) run() error {
-	// Prepare the request to Claude
-	// Download the images from any filepath/URL provided
-	// Convert the image to a base64 string
-	// Append any user prompts and send the request payload to Claude
 	content := []Content{}
+	// Download and convert any images provided
 	for _, path := range app.images {
-		if strings.HasPrefix(path, "https://") {
-			imgBytes, err := downloadImageFromURL(path)
-			if err != nil {
-				return err
-			}
 
-			contentType := http.DetectContentType(imgBytes)
-			imgBase64String := base64.StdEncoding.EncodeToString(imgBytes)
-
-			content = append(content, &Image{
-				Type: "image",
-				Source: Source{
-					Type: "base64", MediaType: contentType, Data: imgBase64String,
-				},
-			})
-
-		} else {
-			// The image file is locally stored
+		imgBytes, err := downloadImage(path)
+		if err != nil {
+			return err
 		}
+
+		content = append(content, &Image{
+			Type: "image",
+			Source: Source{
+				Type:      "base64",
+				MediaType: http.DetectContentType(imgBytes),
+				Data:      base64.StdEncoding.EncodeToString(imgBytes),
+			},
+		})
+
 	}
 
-	// Claude works better if the image comes before
 	content = append(content, &Text{Type: "text", Text: app.userPrompt})
-
 	messages := []Message{{Role: "user", Content: content}}
+
 	rspBytes, err := app.client.CreateMessage(messages, app.systemPrompt)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(string(rspBytes))
-	// type response struct {
-	// 	ID      string                   `json:"id"`
-	// 	Type    string                   `json:"type"`
-	// 	Role    string                   `json:"role"`
-	// 	Content []map[string]interface{} `json:"content"`
-	// }
+	type response struct {
+		ID      string                   `json:"id"`
+		Type    string                   `json:"type"`
+		Role    string                   `json:"role"`
+		Content []map[string]interface{} `json:"content"`
+	}
 
-	// rsp := response{}
-	// err = json.Unmarshal(rspBytes, &rsp)
-	// if err != nil {
-	// 	return err
-	// }
+	rsp := response{}
+	err = json.Unmarshal(rspBytes, &rsp)
+	if err != nil {
+		return err
+	}
 
-	// spew.Dump(rsp)
+	fmt.Println(rsp.Content[0]["text"])
 	return nil
 }

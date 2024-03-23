@@ -9,6 +9,12 @@ import (
 	"time"
 )
 
+const (
+	OPUS   = "claude-3-opus-20240229"
+	SONNET = "claude-3-sonnet-20240229"
+	HAIKU  = "claude-3-haiku-20240307"
+)
+
 type Client struct {
 	config     *Config
 	model      string
@@ -18,7 +24,7 @@ type Client struct {
 func NewClient(config *Config) *Client {
 	return &Client{
 		config: config,
-		model:  "claude-3-haiku-20240307",
+		model:  OPUS,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute,
 		},
@@ -26,7 +32,6 @@ func NewClient(config *Config) *Client {
 }
 
 func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte, error) {
-	// resize any images that are sent
 	reqBody, err := json.Marshal(requestBody{
 		Model:        c.model,
 		MaxTokens:    2048,
