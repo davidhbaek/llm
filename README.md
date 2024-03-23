@@ -20,8 +20,8 @@ A Go CLI tool to interact with LLMs
 $ ./llm -m opus -d './prompts/docs/scaling-chatgpt.pdf' -p 'Analyze this document and provide a summary and key takeaways'
 ```
 
-#### Analyze an image
+#### Analyze an image and provide a role via a system prompt
 
 ```
-$ ./llm -d './prompts/images/ski-lodge.png' -p 'Describe this image in haiku form' -s 'You are a hired poet'
+$ ./llm -i './prompts/images/ski-lodge.png'  -s 'You are a world renowned poet' -p 'Describe this image'
 ```
