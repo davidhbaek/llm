@@ -16,7 +16,7 @@ import (
 func TestCreateMesssage(t *testing.T) {
 	imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
 
-	err := godotenv.Load("../../../.env")
+	err := godotenv.Load(".env_test")
 	require.NoError(t, err)
 
 	client := claude.NewClient(
@@ -29,9 +29,6 @@ func TestCreateMesssage(t *testing.T) {
 	require.NoError(t, err)
 
 	contentType := http.DetectContentType(imgBytes)
-	// img, err := jpeg.Decode(bytes.NewReader(imgBytes))
-	// require.NoError(t, err)
-
 	imgBase64String := base64.StdEncoding.EncodeToString(imgBytes)
 
 	messages := []claude.Message{
@@ -42,7 +39,7 @@ func TestCreateMesssage(t *testing.T) {
 			&claude.Image{Type: "image", Source: claude.Source{Type: "base64", MediaType: contentType, Data: imgBase64String}},
 		}},
 	}
-	rsp, err := client.CreateMessage(messages)
+	rsp, err := client.CreateMessage(messages, "")
 	require.NoError(t, err)
 	fmt.Println(string(rsp))
 }

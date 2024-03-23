@@ -26,6 +26,7 @@ func NewClient(config *Config) *Client {
 }
 
 func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte, error) {
+	// resize any images that are sent
 	reqBody, err := json.Marshal(requestBody{
 		Model:        c.model,
 		MaxTokens:    2048,
