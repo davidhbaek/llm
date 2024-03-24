@@ -7,11 +7,11 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/joho/godotenv"
 	"rsc.io/pdf"
 )
@@ -126,7 +126,7 @@ func (app *env) run() error {
 	for _, path := range app.docs {
 		file, err := pdf.Open(path)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to open file at path=%s: %w", path, err)
 		}
 
 		for i := 1; i <= file.NumPage(); i++ {
@@ -146,8 +146,6 @@ func (app *env) run() error {
 		}
 	}
 
-	spew.Dump(app)
-
 	// One off prompting
 	// Add the prompt that the user initally provided
 	content = append(content, &Text{Type: "text", Text: app.userPrompt})
@@ -160,14 +158,12 @@ func (app *env) run() error {
 		return err
 	}
 
-	fmt.Println(string(rsp))
-
 	answer, err := parseResponse(rsp)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("Answer: ", answer)
+	log.Println("Answer: ", answer)
 
 	return nil
 }
@@ -199,7 +195,7 @@ func (app *env) runChatSession(docText string) error {
 			return err
 		}
 
-		fmt.Println("Answer:", answer)
+		log.Println("Answer:", answer)
 
 		chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: answer}}})
 

@@ -1,10 +1,12 @@
 package claude
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -50,16 +52,29 @@ func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte,
 	req.Header.Set("x-api-key", c.config.apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
+	log.Println("sending request")
 	rsp, err := c.httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer rsp.Body.Close()
 
-	rspBody, err := io.ReadAll(rsp.Body)
-	if err != nil {
-		return nil, err
+	log.Println("reading request body into buffer")
+	body := bufio.NewReader(rsp.Body)
+	buffer := bytes.Buffer{}
+	chunk := make([]byte, 4096)
+	for {
+		n, err := body.Read(chunk)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("reading buffer: %w", err)
+		}
+
+		buffer.Write(chunk[:n])
+
 	}
 
-	return rspBody, nil
+	return buffer.Bytes(), nil
 }
