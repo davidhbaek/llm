@@ -44,7 +44,7 @@ func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte,
 
 	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.config.baseURL, "v1/messages"), bytes.NewReader(reqBody))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("sending POST request: %w", err)
 	}
 
 	req.Header.Set("x-api-key", c.config.apiKey)
