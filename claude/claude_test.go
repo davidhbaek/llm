@@ -2,8 +2,8 @@ package claude_test
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -41,7 +41,7 @@ func TestCreateMesssage(t *testing.T) {
 	}
 	rsp, err := client.CreateMessage(messages, "")
 	require.NoError(t, err)
-	fmt.Println(string(rsp))
+	log.Println(string(rsp))
 }
 
 func downloadImageFromURL(url string) ([]byte, error) {

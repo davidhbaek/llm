@@ -2,6 +2,7 @@ package claude
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -203,18 +204,38 @@ func (app *env) runChatSession(docText string) error {
 }
 
 func parseResponse(rspBytes []byte) (string, error) {
-	rsp := struct {
-		Type string `json:"type"`
-	}{}
-	err := json.Unmarshal(rspBytes, &rsp)
-	if err != nil {
-		return "", err
+	var rspType string
+	rspTypeDecoder := json.NewDecoder(strings.NewReader(string(rspBytes)))
+	rspTypeDecoder.UseNumber()
+	for rspTypeDecoder.More() {
+		token, err := rspTypeDecoder.Token()
+		if err != nil {
+			return "", err
+		}
+
+		if key, ok := token.(string); ok && key == "type" {
+			err := rspTypeDecoder.Decode(&rspType)
+			if err != nil {
+				return "", err
+			}
+			break
+		}
 	}
 
-	switch rsp.Type {
+	reader := bytes.NewReader(rspBytes)
+	rspBodyDecoder := json.NewDecoder(reader)
+	switch rspType {
 	case "error":
-		errRsp := responseError{}
-		err := json.Unmarshal(rspBytes, &errRsp)
+
+		errRsp := struct {
+			Type  string `json:"type"`
+			Error struct {
+				Type    string `json:"type"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}{}
+
+		err := rspBodyDecoder.Decode(&errRsp)
 		if err != nil {
 			return "", err
 		}
@@ -222,8 +243,18 @@ func parseResponse(rspBytes []byte) (string, error) {
 		return fmt.Sprintf("error from Claude API: %s", errRsp.Error.Message), nil
 
 	case "message":
-		okRsp := responseOK{}
-		err := json.Unmarshal(rspBytes, &okRsp)
+
+		okRsp := struct {
+			ID           string                   `json:"id"`
+			Type         string                   `json:"type"`
+			Role         string                   `json:"role"`
+			Content      []map[string]interface{} `json:"content"`
+			Model        string                   `json:"model"`
+			StopReason   string                   `json:"stop_reason"`
+			StopSequence string                   `json:"stop_sequence"`
+			Usage        map[string]int           `json:"usage"`
+		}{}
+		err := rspBodyDecoder.Decode(&okRsp)
 		if err != nil {
 			return "", err
 		}
