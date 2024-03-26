@@ -143,7 +143,7 @@ func (app *env) run() error {
 		docsPrompt += d
 	}
 
-	// Load up any images or docs provided to the LLM
+	// Load up any images
 	content := []Content{}
 	for _, path := range app.images {
 		imgBytes, err := downloadImage(path)
@@ -285,7 +285,7 @@ func parseResponse(rspBytes []byte) (string, error) {
 
 		return okRsp.Content[0]["text"].(string), nil
 	default:
-		return "", nil
+		return "", fmt.Errorf("unsupported response type: %s", rspType)
 	}
 }
 
