@@ -127,10 +127,10 @@ func (app *env) run() error {
 
 	}
 
-	var docPrompts string
+	var docsPrompt string
 	for _, doc := range docs {
 		d := fmt.Sprintf("%s\n", wrapInXMLTags(doc.Text, "document"))
-		docPrompts += d
+		docsPrompt += d
 	}
 
 	// Load up any images or docs provided to the LLM
@@ -152,10 +152,9 @@ func (app *env) run() error {
 
 	}
 
-	// Live chat session
-	// We'll have the user prompt come from stdin instead of a CLI argument
+	// Pass any contextual knowledge from the docs to our chatbot session
 	if app.isChat {
-		err := app.runChatSession()
+		err := app.runChatSession(docsPrompt)
 		if err != nil {
 			return err
 		}
@@ -166,7 +165,7 @@ func (app *env) run() error {
 	content = append(content, &Text{Type: "text", Text: app.userPrompt})
 
 	messages := []Message{{Role: "user", Content: content}}
-	systemPrompt := fmt.Sprintf(wrapInXMLTags(docPrompts, "documents"), app.systemPrompt)
+	systemPrompt := fmt.Sprintf(wrapInXMLTags(docsPrompt, "documents"), app.systemPrompt)
 
 	rsp, err := app.client.CreateMessage(messages, systemPrompt)
 	if err != nil {
@@ -183,12 +182,14 @@ func (app *env) run() error {
 	return nil
 }
 
-func (app *env) runChatSession() error {
+func (app *env) runChatSession(docsPrompt string) error {
 	fmt.Println("Welcome to the chat session")
 
 	chatHistory := []Message{}
 
 	reader := bufio.NewReader(os.Stdin)
+
+	systemPrompt := fmt.Sprintf(wrapInXMLTags(docsPrompt, "documents"), app.systemPrompt)
 
 	for {
 		input, err := reader.ReadString('\n')
@@ -198,7 +199,7 @@ func (app *env) runChatSession() error {
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
 
-		rsp, err := app.client.CreateMessage(chatHistory, "")
+		rsp, err := app.client.CreateMessage(chatHistory, systemPrompt)
 		if err != nil {
 			return err
 		}
