@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/joho/godotenv"
 	"rsc.io/pdf"
@@ -105,27 +106,36 @@ func (app *env) fromArgs(args []string) error {
 
 func (app *env) run() error {
 	// Load up any PDFs
-	docs := []Text{}
-	for _, path := range app.docs {
-		var text string
-		file, err := pdf.Open(path)
-		if err != nil {
-			return fmt.Errorf("failed to open file at path=%s: %w", path, err)
-		}
-
-		for i := 1; i <= file.NumPage(); i++ {
-			textSlice := file.Page(i).Content().Text
-			for _, t := range textSlice {
-				text += t.S + "\n"
+	docs := make([]Text, len(app.docs))
+	wg := sync.WaitGroup{}
+	for i, path := range app.docs {
+		log.Println("ingesting this doc:", path)
+		wg.Add(1)
+		go func(idx int, path string) error {
+			var text string
+			file, err := pdf.Open(path)
+			if err != nil {
+				return fmt.Errorf("failed to open file at path=%s: %w", path, err)
 			}
-		}
 
-		docs = append(docs, Text{
-			Type: "text",
-			Text: text,
-		})
+			for i := 1; i <= file.NumPage(); i++ {
+				textSlice := file.Page(i).Content().Text
+				for _, t := range textSlice {
+					text += t.S + "\n"
+				}
+			}
+
+			docs[idx] = Text{
+				Type: "text",
+				Text: text,
+			}
+			wg.Done()
+			return nil
+		}(i, path)
 
 	}
+
+	wg.Wait()
 
 	var docsPrompt string
 	for _, doc := range docs {
