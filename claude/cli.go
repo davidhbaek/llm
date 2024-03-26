@@ -25,6 +25,7 @@ type env struct {
 	isChat       bool
 	model        string
 	docs         fileList
+	content      []Content
 }
 
 func CLI(args []string) int {
@@ -103,9 +104,37 @@ func (app *env) fromArgs(args []string) error {
 }
 
 func (app *env) run() error {
-	content := []Content{}
+	// Load up any PDFs
+	docs := []Text{}
+	for _, path := range app.docs {
+		var text string
+		file, err := pdf.Open(path)
+		if err != nil {
+			return fmt.Errorf("failed to open file at path=%s: %w", path, err)
+		}
+
+		for i := 1; i <= file.NumPage(); i++ {
+			textSlice := file.Page(i).Content().Text
+			for _, t := range textSlice {
+				text += t.S + "\n"
+			}
+		}
+
+		docs = append(docs, Text{
+			Type: "text",
+			Text: text,
+		})
+
+	}
+
+	var docPrompts string
+	for _, doc := range docs {
+		d := fmt.Sprintf("%s\n", wrapInXMLTags(doc.Text, "document"))
+		docPrompts += d
+	}
 
 	// Load up any images or docs provided to the LLM
+	content := []Content{}
 	for _, path := range app.images {
 		imgBytes, err := downloadImage(path)
 		if err != nil {
@@ -123,25 +152,10 @@ func (app *env) run() error {
 
 	}
 
-	var text string
-	for _, path := range app.docs {
-		file, err := pdf.Open(path)
-		if err != nil {
-			return fmt.Errorf("failed to open file at path=%s: %w", path, err)
-		}
-
-		for i := 1; i <= file.NumPage(); i++ {
-			textSlice := file.Page(i).Content().Text
-			for _, t := range textSlice {
-				text += t.S + "\n"
-			}
-		}
-
-	}
 	// Live chat session
 	// We'll have the user prompt come from stdin instead of a CLI argument
 	if app.isChat {
-		err := app.runChatSession(text)
+		err := app.runChatSession()
 		if err != nil {
 			return err
 		}
@@ -152,7 +166,7 @@ func (app *env) run() error {
 	content = append(content, &Text{Type: "text", Text: app.userPrompt})
 
 	messages := []Message{{Role: "user", Content: content}}
-	systemPrompt := fmt.Sprintf(wrapInXMLTags(text, "document"), app.systemPrompt)
+	systemPrompt := fmt.Sprintf(wrapInXMLTags(docPrompts, "documents"), app.systemPrompt)
 
 	rsp, err := app.client.CreateMessage(messages, systemPrompt)
 	if err != nil {
@@ -169,8 +183,7 @@ func (app *env) run() error {
 	return nil
 }
 
-// runChatSession can accept a document text to be used during the chat session
-func (app *env) runChatSession(docText string) error {
+func (app *env) runChatSession() error {
 	fmt.Println("Welcome to the chat session")
 
 	chatHistory := []Message{}
@@ -184,9 +197,8 @@ func (app *env) runChatSession(docText string) error {
 		}
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
-		systemPrompt := fmt.Sprintf(wrapInXMLTags(docText, "document"), app.systemPrompt)
 
-		rsp, err := app.client.CreateMessage(chatHistory, systemPrompt)
+		rsp, err := app.client.CreateMessage(chatHistory, "")
 		if err != nil {
 			return err
 		}
@@ -204,8 +216,9 @@ func (app *env) runChatSession(docText string) error {
 }
 
 func parseResponse(rspBytes []byte) (string, error) {
+	// First parse the 'type' field so we know how to decode the rest of the response
 	var rspType string
-	rspTypeDecoder := json.NewDecoder(strings.NewReader(string(rspBytes)))
+	rspTypeDecoder := json.NewDecoder(bytes.NewReader(rspBytes))
 	rspTypeDecoder.UseNumber()
 	for rspTypeDecoder.More() {
 		token, err := rspTypeDecoder.Token()
