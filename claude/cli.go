@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"os"
 	"runtime/pprof"
+	"runtime/trace"
 	"strings"
 	"sync"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/joho/godotenv"
 	"rsc.io/pdf"
 )
@@ -117,6 +119,18 @@ func (app *env) run() error {
 	}
 	defer pprof.StopCPUProfile()
 
+	traceFile, err := os.Create("trace.out")
+	if err != nil {
+		return fmt.Errorf("creating trace file: %w", err)
+	}
+	defer traceFile.Close()
+
+	err = trace.Start(traceFile)
+	if err != nil {
+		return fmt.Errorf("starting trace: %w", err)
+	}
+	defer trace.Stop()
+
 	// Load up any PDFs
 	docs := make([]Text, len(app.docs))
 	wg := sync.WaitGroup{}
@@ -194,12 +208,14 @@ func (app *env) run() error {
 		return err
 	}
 
-	answer, err := parseResponseMessage(rsp)
-	if err != nil {
-		return err
-	}
+	spew.Dump(rsp)
 
-	log.Println("Answer: ", answer)
+	// answer, err := parseResponseMessage(rsp)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// log.Println("Answer: ", answer)
 
 	return nil
 }
@@ -221,19 +237,19 @@ func (app *env) runChatSession(docsPrompt string) error {
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
 
-		rsp, err := app.client.CreateMessage(chatHistory, systemPrompt)
+		_, err = app.client.CreateMessage(chatHistory, systemPrompt)
 		if err != nil {
 			return err
 		}
 
-		answer, err := parseResponseMessage(rsp)
-		if err != nil {
-			return err
-		}
+		// answer, err := parseResponseMessage(rsp)
+		// if err != nil {
+		// 	return err
+		// }
 
-		log.Println("Answer:", answer)
+		// log.Println("Answer:", answer)
 
-		chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: answer}}})
+		// chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: answer}}})
 
 	}
 }

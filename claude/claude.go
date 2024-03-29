@@ -1,7 +1,6 @@
 package claude
 
 import (
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -37,8 +36,9 @@ func NewClient(config *Config) *Client {
 	}
 }
 
-func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte, error) {
-	reqBody, err := json.Marshal(requestBody{
+func (c *Client) CreateMessage(messages []Message, systemPrompt string) (*Response, error) {
+	// response := http.Response{}
+	reqBody, err := json.Marshal(Request{
 		Model:        c.model,
 		MaxTokens:    2048,
 		SystemPrompt: systemPrompt,
@@ -62,21 +62,32 @@ func (c *Client) CreateMessage(messages []Message, systemPrompt string) ([]byte,
 	}
 	defer rsp.Body.Close()
 
-	body := bufio.NewReader(rsp.Body)
-	buffer := bytes.Buffer{}
+	body := bytes.Buffer{}
 	chunk := make([]byte, 4096)
 	for {
-		n, err := body.Read(chunk)
-		if err != nil {
-			if err == io.EOF {
+		n, err := rsp.Body.Read(chunk)
+
+		if err == io.EOF {
+			err = nil
+			// An instance of this general case is that a Reader returning
+			// a non-zero number of bytes at the end of the input stream may
+			// return either err == EOF or err == nil. The next Read should
+			// return 0, EOF.
+			if n <= 0 {
 				break
 			}
-			return nil, fmt.Errorf("reading buffer: %w", err)
 		}
 
-		buffer.Write(chunk[:n])
+		if err != nil {
+			return nil, err
+		}
+
+		body.Write(chunk[:n])
 
 	}
 
-	return buffer.Bytes(), nil
+	return &Response{
+		StatusCode: rsp.StatusCode,
+		Body:       &body,
+	}, nil
 }
