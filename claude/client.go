@@ -21,10 +21,10 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(config *Config) *Client {
+func NewClient(model string, config *Config) *Client {
 	return &Client{
 		config: config,
-		model:  OPUS,
+		model:  model,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute,
 			Transport: &http.Transport{
@@ -37,7 +37,6 @@ func NewClient(config *Config) *Client {
 }
 
 func (c *Client) CreateMessage(messages []Message, systemPrompt string) (*Response, error) {
-	// response := http.Response{}
 	reqBody, err := json.Marshal(Request{
 		Model:        c.model,
 		MaxTokens:    2048,

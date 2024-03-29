@@ -61,27 +61,25 @@ type ResponseBody interface {
 }
 
 type OkResponseBody struct {
-	ID           string   `json:"id"`
-	Type         string   `json:"type"`
-	Role         string   `json:"role"`
-	Content      []string `json:"content"`
-	Model        string   `json:"model"`
-	StopReason   string   `json:"stop_reason"`
-	StopSequence string   `json:"stop_sequence"`
-	Usage        Usage    `json:"usage"`
+	ID           string `json:"id"`
+	Type         string `json:"type"`
+	Role         string `json:"role"`
+	Content      []Text `json:"content"`
+	Model        string `json:"model"`
+	StopReason   string `json:"stop_reason"`
+	StopSequence string `json:"stop_sequence"`
+	Usage        Usage  `json:"usage"`
 }
 
 type ErrResponseBody struct {
-	ID           string   `json:"id"`
-	Type         string   `json:"type"`
-	Role         string   `json:"role"`
-	Content      []string `json:"content"`
-	Model        string   `json:"model"`
-	StopReason   string   `json:"stop_reason"`
-	StopSequence string   `json:"stop_sequence"`
-	Usage        Usage    `json:"usage"`
+	Type  string   `json:"type"`
+	Error APIError `jsson:"error"`
 }
 
+type APIError struct {
+	Type    string `json:"type"`
+	Message string `json:"message"`
+}
 type Usage struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`

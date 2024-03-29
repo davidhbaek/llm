@@ -2,7 +2,6 @@ package claude
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,7 +15,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/joho/godotenv"
 	"rsc.io/pdf"
 )
@@ -27,7 +25,6 @@ type env struct {
 	systemPrompt string
 	images       fileList
 	isChat       bool
-	model        string
 	docs         fileList
 	content      []Content
 }
@@ -98,10 +95,9 @@ func (app *env) fromArgs(args []string) error {
 	app.userPrompt = prompt
 	app.systemPrompt = system
 	app.images = images
-	app.model = claudeModel
 	app.docs = docs
 	app.isChat = isChat
-	app.client = *NewClient(NewConfig("https://api.anthropic.com", os.Getenv("ANTHROPIC_API_KEY")))
+	app.client = *NewClient(claudeModel, NewConfig("https://api.anthropic.com", os.Getenv("ANTHROPIC_API_KEY")))
 
 	return nil
 }
@@ -205,17 +201,31 @@ func (app *env) run() error {
 
 	rsp, err := app.client.CreateMessage(messages, systemPrompt)
 	if err != nil {
-		return err
+		return fmt.Errorf("sending message to Claude: %w", err)
 	}
 
-	spew.Dump(rsp)
+	body := json.NewDecoder(rsp.Body)
+	switch rsp.StatusCode {
+	case http.StatusOK:
+		okRsp := OkResponseBody{}
+		err := body.Decode(&okRsp)
+		if err != nil {
+			return err
+		}
 
-	// answer, err := parseResponseMessage(rsp)
-	// if err != nil {
-	// 	return err
-	// }
+		log.Printf("Answer: %s\n", okRsp.Content[0].Text)
+	default:
+		errRsp := ErrResponseBody{}
+		err := body.Decode(&errRsp)
+		if err != nil {
+			return err
+		}
 
-	// log.Println("Answer: ", answer)
+		return fmt.Errorf("HTTP %d error from Claude API: %+v\n", rsp.StatusCode, errRsp.Error)
+
+	}
+
+	// TODO: Log usage/cost?
 
 	return nil
 }
@@ -230,6 +240,7 @@ func (app *env) runChatSession(docsPrompt string) error {
 	systemPrompt := fmt.Sprintf(wrapInXMLTags(docsPrompt, "documents"), app.systemPrompt)
 
 	for {
+
 		input, err := reader.ReadString('\n')
 		if err != nil {
 			return err
@@ -237,83 +248,34 @@ func (app *env) runChatSession(docsPrompt string) error {
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
 
-		_, err = app.client.CreateMessage(chatHistory, systemPrompt)
+		rsp, err := app.client.CreateMessage(chatHistory, systemPrompt)
 		if err != nil {
 			return err
 		}
 
-		// answer, err := parseResponseMessage(rsp)
-		// if err != nil {
-		// 	return err
-		// }
-
-		// log.Println("Answer:", answer)
-
-		// chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: answer}}})
-
-	}
-}
-
-func parseResponseMessage(rspBytes []byte) (string, error) {
-	// First parse the 'type' field so we know how to decode the rest of the response
-	var rspType string
-	rspTypeDecoder := json.NewDecoder(bytes.NewReader(rspBytes))
-	rspTypeDecoder.UseNumber()
-	for rspTypeDecoder.More() {
-		token, err := rspTypeDecoder.Token()
-		if err != nil {
-			return "", err
-		}
-
-		if key, ok := token.(string); ok && key == "type" {
-			err := rspTypeDecoder.Decode(&rspType)
+		body := json.NewDecoder(rsp.Body)
+		switch rsp.StatusCode {
+		case http.StatusOK:
+			okRsp := OkResponseBody{}
+			err := body.Decode(&okRsp)
 			if err != nil {
-				return "", err
+				return err
 			}
-			break
-		}
-	}
 
-	reader := bytes.NewReader(rspBytes)
-	rspBodyDecoder := json.NewDecoder(reader)
-	switch rspType {
-	case "error":
+			log.Printf("Answer: %s\n", okRsp.Content[0].Text)
 
-		errRsp := struct {
-			Type  string `json:"type"`
-			Error struct {
-				Type    string `json:"type"`
-				Message string `json:"message"`
-			} `json:"error"`
-		}{}
+			chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: okRsp.Content[0].Text}}})
+		default:
+			errRsp := ErrResponseBody{}
+			err := body.Decode(&errRsp)
+			if err != nil {
+				return err
+			}
 
-		err := rspBodyDecoder.Decode(&errRsp)
-		if err != nil {
-			return "", err
+			return fmt.Errorf("HTTP %d error from Claude API: %+v\n", rsp.StatusCode, errRsp.Error)
+
 		}
 
-		return fmt.Sprintf("error from Claude API: %s", errRsp.Error.Message), nil
-
-	case "message":
-
-		okRsp := struct {
-			ID           string                   `json:"id"`
-			Type         string                   `json:"type"`
-			Role         string                   `json:"role"`
-			Content      []map[string]interface{} `json:"content"`
-			Model        string                   `json:"model"`
-			StopReason   string                   `json:"stop_reason"`
-			StopSequence string                   `json:"stop_sequence"`
-			Usage        map[string]int           `json:"usage"`
-		}{}
-		err := rspBodyDecoder.Decode(&okRsp)
-		if err != nil {
-			return "", err
-		}
-
-		return okRsp.Content[0]["text"].(string), nil
-	default:
-		return "", fmt.Errorf("unsupported response type: %s", rspType)
 	}
 }
 
