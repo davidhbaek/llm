@@ -1,0 +1,25 @@
+name: Build, Test, and Lint Go code
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      uses: actions/setup-go@v4
+      with:
+        go-version-file: go.mod
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Lint
+      uses: golangci/golangci-lint-action@v4
+      with:
+        version: latest
+
+    - name: Test
+      run: go test -v ./...
