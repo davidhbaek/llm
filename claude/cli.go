@@ -48,7 +48,7 @@ func CLI(args []string) int {
 func (app *env) fromArgs(args []string) error {
 	err := godotenv.Load()
 	if err != nil {
-		return err
+		return fmt.Errorf("loading environment: %w", err)
 	}
 
 	fl := flag.NewFlagSet("claude", flag.ContinueOnError)
@@ -69,7 +69,6 @@ func (app *env) fromArgs(args []string) error {
 	fl.Var(&images, "i", "list of image paths (filenames and URLs)")
 	fl.Var(&images, "image", "list of image paths (filenames and URLs)")
 
-	// TODO: Accept a list of documents
 	var docs fileList
 	fl.Var(&docs, "d", "list of filepaths to docs (PDFs)")
 	fl.Var(&docs, "document", "list of filepaths to docs (PDFs)")
@@ -79,7 +78,7 @@ func (app *env) fromArgs(args []string) error {
 	fl.BoolVar(&isChat, "chat", false, "Start a live chat that retains conversation history")
 
 	if err := fl.Parse(args); err != nil {
-		return err
+		return fmt.Errorf("parsing command line arguments: %w", err)
 	}
 
 	modelMap := map[string]string{
@@ -182,7 +181,7 @@ func (app *env) run() error {
 		return err
 	}
 
-	answer, err := parseResponse(rsp)
+	answer, err := parseResponseMessage(rsp)
 	if err != nil {
 		return err
 	}
@@ -214,7 +213,7 @@ func (app *env) runChatSession(docsPrompt string) error {
 			return err
 		}
 
-		answer, err := parseResponse(rsp)
+		answer, err := parseResponseMessage(rsp)
 		if err != nil {
 			return err
 		}
@@ -226,7 +225,7 @@ func (app *env) runChatSession(docsPrompt string) error {
 	}
 }
 
-func parseResponse(rspBytes []byte) (string, error) {
+func parseResponseMessage(rspBytes []byte) (string, error) {
 	// First parse the 'type' field so we know how to decode the rest of the response
 	var rspType string
 	rspTypeDecoder := json.NewDecoder(bytes.NewReader(rspBytes))
