@@ -214,6 +214,9 @@ func (app *env) run() error {
 		}
 
 		log.Printf("Answer: %s\n", okRsp.Content[0].Text)
+
+		_ = getCost(app.client.model, okRsp.Usage)
+
 	default:
 		errRsp := ErrResponseBody{}
 		err := body.Decode(&errRsp)
@@ -225,13 +228,11 @@ func (app *env) run() error {
 
 	}
 
-	// TODO: Log usage/cost?
-
 	return nil
 }
 
 func (app *env) runChatSession(docsPrompt string) error {
-	fmt.Println("Welcome to the chat session")
+	log.Println("Welcome to the chat session")
 
 	chatHistory := []Message{}
 
@@ -265,6 +266,9 @@ func (app *env) runChatSession(docsPrompt string) error {
 			log.Printf("Answer: %s\n", okRsp.Content[0].Text)
 
 			chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: okRsp.Content[0].Text}}})
+
+			_ = getCost(app.client.model, okRsp.Usage)
+
 		default:
 			errRsp := ErrResponseBody{}
 			err := body.Decode(&errRsp)

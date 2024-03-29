@@ -3,7 +3,6 @@ package claude_test
 import (
 	"encoding/base64"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -16,10 +15,11 @@ import (
 func TestCreateMesssage(t *testing.T) {
 	imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
 
-	err := godotenv.Load(".env_test")
+	err := godotenv.Load("../.env")
 	require.NoError(t, err)
 
 	client := claude.NewClient(
+		claude.HAIKU,
 		claude.NewConfig(
 			"https://api.anthropic.com",
 			os.Getenv("ANTHROPIC_API_KEY")),
@@ -41,7 +41,7 @@ func TestCreateMesssage(t *testing.T) {
 	}
 	rsp, err := client.CreateMessage(messages, "")
 	require.NoError(t, err)
-	log.Println(string(rsp))
+	require.Equal(t, http.StatusOK, rsp.StatusCode)
 }
 
 func downloadImageFromURL(url string) ([]byte, error) {
