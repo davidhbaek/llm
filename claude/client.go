@@ -9,6 +9,8 @@ import (
 	"time"
 )
 
+// Model names for the Claude API
+// https://docs.anthropic.com/claude/docs/models-overview#model-comparison
 const (
 	OPUS   = "claude-3-opus-20240229"
 	SONNET = "claude-3-sonnet-20240229"

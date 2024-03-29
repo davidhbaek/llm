@@ -2,6 +2,7 @@ package claude_test
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -28,20 +29,31 @@ func TestCreateMesssage(t *testing.T) {
 	imgBytes, err := downloadImageFromURL(imgURL)
 	require.NoError(t, err)
 
-	contentType := http.DetectContentType(imgBytes)
-	imgBase64String := base64.StdEncoding.EncodeToString(imgBytes)
+	fmt.Println(base64.StdEncoding.EncodeToString(imgBytes))
 
-	messages := []claude.Message{
-		{Role: "user", Content: []claude.Content{&claude.Text{Type: "text", Text: "hello claude how are you?"}}},
-		{Role: "assistant", Content: []claude.Content{&claude.Text{Type: "text", Text: "How are you doing today?"}}},
-		{Role: "user", Content: []claude.Content{
-			&claude.Text{Type: "text", Text: "can you describe this image"},
-			&claude.Image{Type: "image", Source: claude.Source{Type: "base64", MediaType: contentType, Data: imgBase64String}},
+	tests := []struct {
+		Name               string
+		ExpectedStatusCode int
+		InputMsg           []claude.Message
+		SystemPrompt       string
+	}{
+		{Name: "Hello Claude", ExpectedStatusCode: http.StatusOK, InputMsg: []claude.Message{{Role: "user", Content: []claude.Content{&claude.Text{Type: "text", Text: "Hello Claude"}}}}},
+		{Name: "Empty input should return bad request", ExpectedStatusCode: http.StatusBadRequest, InputMsg: []claude.Message{{}}}, // empty prompt
+		{Name: "Successful prompt about an image", ExpectedStatusCode: http.StatusOK, InputMsg: []claude.Message{
+			{Role: "user", Content: []claude.Content{
+				&claude.Text{Type: "text", Text: "can you describe this image"},
+				&claude.Image{Type: "image", Source: claude.Source{Type: "base64", MediaType: http.DetectContentType(imgBytes), Data: base64.StdEncoding.EncodeToString(imgBytes)}},
+			}},
 		}},
 	}
-	rsp, err := client.CreateMessage(messages, "")
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rsp.StatusCode)
+
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			rsp, err := client.CreateMessage(test.InputMsg, test.SystemPrompt)
+			require.NoError(t, err)
+			require.Equal(t, test.ExpectedStatusCode, rsp.StatusCode)
+		})
+	}
 }
 
 func downloadImageFromURL(url string) ([]byte, error) {
