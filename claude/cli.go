@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime/pprof"
 	"strings"
 	"sync"
 
@@ -104,6 +105,18 @@ func (app *env) fromArgs(args []string) error {
 }
 
 func (app *env) run() error {
+	cpuProfile, err := os.Create("cpu.prof")
+	if err != nil {
+		return fmt.Errorf("creating CPU profile: %w", err)
+	}
+	defer cpuProfile.Close()
+
+	err = pprof.StartCPUProfile(cpuProfile)
+	if err != nil {
+		return fmt.Errorf("starting CPU profile: %w", err)
+	}
+	defer pprof.StopCPUProfile()
+
 	// Load up any PDFs
 	docs := make([]Text, len(app.docs))
 	wg := sync.WaitGroup{}

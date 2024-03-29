@@ -28,6 +28,11 @@ func NewClient(config *Config) *Client {
 		model:  OPUS,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute,
+			Transport: &http.Transport{
+				MaxIdleConns:        10,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     1 * time.Minute,
+			},
 		},
 	}
 }
