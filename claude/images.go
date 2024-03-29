@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	"image"
 	"image/jpeg"
 	"image/png"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,7 +17,7 @@ import (
 	"github.com/nfnt/resize"
 )
 
-const maxSize = 5 * 1024 * 1024 // 5 MB in bytes
+const maxSize = 5 * 1024 * 1024 // 5 MB (the max Claude allows per image)
 
 type fileList []string
 
@@ -31,9 +33,9 @@ func (f *fileList) Set(value string) error {
 }
 
 func downloadImage(path string) ([]byte, error) {
-	data := []byte{}
 	buffer := bytes.Buffer{}
 
+	// Download the image from the internet
 	if strings.HasPrefix(path, "https://") {
 		rsp, err := http.Get(path)
 		if err != nil {
@@ -41,10 +43,14 @@ func downloadImage(path string) ([]byte, error) {
 		}
 		defer rsp.Body.Close()
 
-		data, err = io.ReadAll(rsp.Body)
+		_, err = io.Copy(&buffer, rsp.Body)
 		if err != nil {
 			return nil, err
 		}
+
+		return buffer.Bytes(), nil
+
+		// Download the image from a local file patha
 	} else {
 		file, err := os.Open(path)
 		if err != nil {
@@ -56,12 +62,18 @@ func downloadImage(path string) ([]byte, error) {
 			return nil, err
 		}
 
+		// We immediately send the bytes back if we don't need to resize the image
 		if fileInfo.Size() <= maxSize {
-			data, err = io.ReadAll(file)
+			_, err := io.Copy(&buffer, file)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("copying image bytes: %w", err)
 			}
+			return buffer.Bytes(), nil
 		}
+
+		log.Printf("re-sizing photo at path=%s", path)
+
+		targetSize := float64(maxSize) / float64(fileInfo.Size())
 
 		switch filepath.Ext(path) {
 		case "jpg":
@@ -70,20 +82,9 @@ func downloadImage(path string) ([]byte, error) {
 				return nil, err
 			}
 
-			targetSize := float64(maxSize) / float64(fileInfo.Size())
-			targetWidth := uint(float64(img.Bounds().Dx()) * targetSize)
-			targetHeight := uint(float64(img.Bounds().Dy()) * targetSize)
-
-			resizedImg := resize.Resize(targetWidth, targetHeight, img, resize.Lanczos3)
-
-			err = jpeg.Encode(&buffer, resizedImg, &jpeg.Options{Quality: jpeg.DefaultQuality})
+			err = jpeg.Encode(&buffer, resizeImg(img, targetSize), &jpeg.Options{Quality: jpeg.DefaultQuality})
 			if err != nil {
 				fmt.Println("Error creating output file:", err)
-				return nil, err
-			}
-
-			data, err = io.ReadAll(&buffer)
-			if err != nil {
 				return nil, err
 			}
 
@@ -93,21 +94,10 @@ func downloadImage(path string) ([]byte, error) {
 				return nil, err
 			}
 
-			targetSize := float64(maxSize) / float64(fileInfo.Size())
-			targetWidth := uint(float64(img.Bounds().Dx()) * targetSize)
-			targetHeight := uint(float64(img.Bounds().Dy()) * targetSize)
-
-			resizedImg := resize.Resize(targetWidth, targetHeight, img, resize.Lanczos3)
-
 			encoder := png.Encoder{CompressionLevel: png.BestCompression}
-			err = encoder.Encode(&buffer, resizedImg)
+			err = encoder.Encode(&buffer, resizeImg(img, targetSize))
 			if err != nil {
 				fmt.Println("Error creating output file:", err)
-				return nil, err
-			}
-
-			data, err = io.ReadAll(&buffer)
-			if err != nil {
 				return nil, err
 			}
 
@@ -115,5 +105,12 @@ func downloadImage(path string) ([]byte, error) {
 
 	}
 
-	return data, nil
+	return buffer.Bytes(), nil
+}
+
+func resizeImg(img image.Image, size float64) image.Image {
+	width := uint(float64(img.Bounds().Dx()) * size)
+	height := uint(float64(img.Bounds().Dy()) * size)
+
+	return resize.Resize(width, height, img, resize.Lanczos3)
 }
