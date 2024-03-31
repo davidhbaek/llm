@@ -9,15 +9,11 @@ import (
 	"testing"
 
 	"github.com/davidhbaek/llm/claude"
-	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCreateMesssage(t *testing.T) {
 	imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
-
-	err := godotenv.Load("../.env")
-	require.NoError(t, err)
 
 	client := claude.NewClient(
 		claude.HAIKU,
