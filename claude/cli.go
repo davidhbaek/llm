@@ -2,6 +2,7 @@ package claude
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -13,9 +14,9 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 	"strings"
-	"sync"
 
 	"github.com/joho/godotenv"
+	"golang.org/x/sync/errgroup"
 	"rsc.io/pdf"
 )
 
@@ -26,7 +27,6 @@ type env struct {
 	images       fileList
 	isChat       bool
 	docs         fileList
-	content      []Content
 }
 
 func CLI(args []string) int {
@@ -129,11 +129,13 @@ func (app *env) run() error {
 
 	// Load up any PDFs
 	docs := make([]Text, len(app.docs))
-	wg := sync.WaitGroup{}
-	for i, path := range app.docs {
-		log.Println("ingesting this doc:", path)
-		wg.Add(1)
-		go func(idx int, path string) error {
+
+	eg, _ := errgroup.WithContext(context.Background())
+
+	for idx, path := range app.docs {
+		idx, path := idx, path
+		eg.Go(func() error {
+			log.Println("ingesting this doc:", path)
 			var text string
 			file, err := pdf.Open(path)
 			if err != nil {
@@ -151,13 +153,15 @@ func (app *env) run() error {
 				Type: "text",
 				Text: text,
 			}
-			wg.Done()
-			return nil
-		}(i, path)
 
+			return nil
+		})
 	}
 
-	wg.Wait()
+	err = eg.Wait()
+	if err != nil {
+		return fmt.Errorf("extracting text from document: %w", err)
+	}
 
 	var docsPrompt string
 	for _, doc := range docs {
@@ -193,7 +197,6 @@ func (app *env) run() error {
 	}
 
 	// One off prompting
-	// Add the prompt that the user initally provided
 	content = append(content, &Text{Type: "text", Text: app.userPrompt})
 
 	messages := []Message{{Role: "user", Content: content}}
