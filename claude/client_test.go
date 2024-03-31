@@ -2,7 +2,6 @@ package claude_test
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -24,8 +23,6 @@ func TestCreateMesssage(t *testing.T) {
 
 	imgBytes, err := downloadImageFromURL(imgURL)
 	require.NoError(t, err)
-
-	fmt.Println(base64.StdEncoding.EncodeToString(imgBytes))
 
 	tests := []struct {
 		Name               string
