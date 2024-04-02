@@ -252,36 +252,50 @@ func (app *env) runChatSession(docsPrompt string) error {
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
 
-		rsp, err := app.client.CreateMessage(chatHistory, systemPrompt)
+		rsp, err := app.client.StreamMessage(chatHistory, systemPrompt)
 		if err != nil {
 			return err
 		}
 
-		body := json.NewDecoder(rsp.Body)
-		switch rsp.StatusCode {
-		case http.StatusOK:
-			okRsp := OkResponseBody{}
-			err := body.Decode(&okRsp)
-			if err != nil {
-				return err
+		scanner := bufio.NewScanner(rsp.Body)
+
+		var text string
+		for scanner.Scan() {
+			line := scanner.Text()
+
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				continue
 			}
+			key, value := parts[0], parts[1]
 
-			log.Printf("Answer: %s\n", okRsp.Content[0].Text)
+			switch key {
+			case "event":
+			case "data":
 
-			chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: okRsp.Content[0].Text}}})
+				sseData := SSEData{}
+				err := json.Unmarshal([]byte(value), &sseData)
+				if err != nil {
+					return err
+				}
 
-			_ = getCost(app.client.model, okRsp.Usage)
+				switch sseData.Type {
+				case "content_block_delta":
+					content := ContentBlockDelta{}
+					err := json.Unmarshal([]byte(value), &content)
+					if err != nil {
+						return err
+					}
+					fmt.Printf("%s", content.Delta.Text)
+					text += content.Delta.Text
+				}
 
-		default:
-			errRsp := ErrResponseBody{}
-			err := body.Decode(&errRsp)
-			if err != nil {
-				return err
 			}
-
-			return fmt.Errorf("HTTP %d error from Claude API: %+v\n", rsp.StatusCode, errRsp.Error)
 
 		}
+		fmt.Println()
+
+		chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: text}}})
 
 	}
 }

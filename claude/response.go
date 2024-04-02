@@ -22,6 +22,12 @@ type OkResponseBody struct {
 	Usage        Usage  `json:"usage"`
 }
 
+var _ ResponseBody = &OkResponseBody{}
+
+func (r *OkResponseBody) GetType() string {
+	return "message"
+}
+
 type Usage struct {
 	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
@@ -30,6 +36,12 @@ type Usage struct {
 type ErrResponseBody struct {
 	Type  string   `json:"type"`
 	Error APIError `jsson:"error"`
+}
+
+var _ ResponseBody = &ErrResponseBody{}
+
+func (r *ErrResponseBody) GetType() string {
+	return "error"
 }
 
 type APIError struct {

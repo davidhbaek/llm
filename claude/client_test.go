@@ -49,6 +49,20 @@ func TestCreateMesssage(t *testing.T) {
 	}
 }
 
+func TestStreamMessage(t *testing.T) {
+	client := claude.NewClient(
+		claude.HAIKU,
+		claude.NewConfig(
+			"https://api.anthropic.com",
+			os.Getenv("ANTHROPIC_API_KEY")),
+	)
+
+	messages := []claude.Message{{Role: "user", Content: []claude.Content{&claude.Text{Type: "text", Text: "hello"}}}}
+	rsp, err := client.StreamMessage(messages, "")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rsp.StatusCode)
+}
+
 func downloadImageFromURL(url string) ([]byte, error) {
 	rsp, err := http.Get(url)
 	if err != nil {

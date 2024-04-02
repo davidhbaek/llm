@@ -92,3 +92,35 @@ func (c *Client) CreateMessage(messages []Message, systemPrompt string) (*Respon
 		Body:       &body,
 	}, nil
 }
+
+func (c *Client) StreamMessage(messages []Message, systemPrompt string) (*Response, error) {
+	reqBody, err := json.Marshal(Request{
+		Model:        c.model,
+		MaxTokens:    2048,
+		SystemPrompt: systemPrompt,
+		Messages:     messages,
+		Stream:       true,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.config.baseURL, "v1/messages"), bytes.NewReader(reqBody))
+	if err != nil {
+		return nil, fmt.Errorf("sending POST request: %w", err)
+	}
+
+	req.Header.Set("x-api-key", c.config.apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+	req.Header.Set("Accept", "text/event-stream")
+
+	rsp, err := c.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Response{
+		StatusCode: rsp.StatusCode,
+		Body:       rsp.Body,
+	}, nil
+}
