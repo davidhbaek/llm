@@ -94,15 +94,25 @@ func (app *env) fromArgs(args []string) error {
 		return errors.New("model must be one of [haiku, sonnet, opus]")
 	}
 
-	// Parse out the prompt if it's a file
+	// Get the prompt text if they're coming from a file
 	if filepath.Ext(prompt) == ".txt" {
-		log.Println("reading prompt file")
+		log.Printf("reading prompt file at path=%s", prompt)
 		bytes, err := os.ReadFile(prompt)
 		if err != nil {
 			return err
 		}
 
 		prompt = string(bytes)
+	}
+
+	if filepath.Ext(system) == ".txt" {
+		log.Printf("reading system file at path=%s", system)
+		bytes, err := os.ReadFile(system)
+		if err != nil {
+			return err
+		}
+
+		system = string(bytes)
 	}
 
 	app.userPrompt = prompt
