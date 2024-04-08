@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateMesssage(t *testing.T) {
+func TestSendMessage(t *testing.T) {
 	imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
 
 	client := claude.NewClient(
@@ -42,25 +42,11 @@ func TestCreateMesssage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			rsp, err := client.CreateMessage(test.InputMsg, test.SystemPrompt)
+			rsp, err := client.SendMessage(test.InputMsg, test.SystemPrompt)
 			require.NoError(t, err)
 			require.Equal(t, test.ExpectedStatusCode, rsp.StatusCode)
 		})
 	}
-}
-
-func TestStreamMessage(t *testing.T) {
-	client := claude.NewClient(
-		claude.HAIKU,
-		claude.NewConfig(
-			"https://api.anthropic.com",
-			os.Getenv("ANTHROPIC_API_KEY")),
-	)
-
-	messages := []claude.Message{{Role: "user", Content: []claude.Content{&claude.Text{Type: "text", Text: "hello"}}}}
-	rsp, err := client.StreamMessage(messages, "")
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rsp.StatusCode)
 }
 
 func downloadImageFromURL(url string) ([]byte, error) {

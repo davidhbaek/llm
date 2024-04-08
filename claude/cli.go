@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -202,33 +203,14 @@ func (app *env) run() error {
 	messages := []Message{{Role: "user", Content: content}}
 	systemPrompt := fmt.Sprintf(wrapInXMLTags(docsPrompt, "documents"), app.systemPrompt)
 
-	rsp, err := app.client.CreateMessage(messages, systemPrompt)
+	rsp, err := app.client.SendMessage(messages, systemPrompt)
 	if err != nil {
 		return fmt.Errorf("sending message to Claude: %w", err)
 	}
 
-	body := json.NewDecoder(rsp.Body)
-	switch rsp.StatusCode {
-	case http.StatusOK:
-		okRsp := OkResponseBody{}
-		err := body.Decode(&okRsp)
-		if err != nil {
-			return err
-		}
-
-		log.Printf("Answer: %s\n", okRsp.Content[0].Text)
-
-		_ = getCost(app.client.model, okRsp.Usage)
-
-	default:
-		errRsp := ErrResponseBody{}
-		err := body.Decode(&errRsp)
-		if err != nil {
-			return err
-		}
-
-		return fmt.Errorf("HTTP %d error from Claude API: %+v\n", rsp.StatusCode, errRsp.Error)
-
+	_, err = ReadBody(rsp.Body)
+	if err != nil {
+		return err
 	}
 
 	return nil
@@ -252,48 +234,15 @@ func (app *env) runChatSession(docsPrompt string) error {
 
 		chatHistory = append(chatHistory, Message{Role: "user", Content: []Content{&Text{Type: "text", Text: strings.TrimSpace(input)}}})
 
-		rsp, err := app.client.StreamMessage(chatHistory, systemPrompt)
+		rsp, err := app.client.SendMessage(chatHistory, systemPrompt)
 		if err != nil {
 			return err
 		}
 
-		scanner := bufio.NewScanner(rsp.Body)
-
-		var text string
-		for scanner.Scan() {
-			line := scanner.Text()
-
-			parts := strings.SplitN(line, ":", 2)
-			if len(parts) != 2 {
-				continue
-			}
-			key, value := parts[0], parts[1]
-
-			switch key {
-			case "event":
-			case "data":
-
-				sseData := SSEData{}
-				err := json.Unmarshal([]byte(value), &sseData)
-				if err != nil {
-					return err
-				}
-
-				switch sseData.Type {
-				case "content_block_delta":
-					content := ContentBlockDelta{}
-					err := json.Unmarshal([]byte(value), &content)
-					if err != nil {
-						return err
-					}
-					fmt.Printf("%s", content.Delta.Text)
-					text += content.Delta.Text
-				}
-
-			}
-
+		text, err := ReadBody(rsp.Body)
+		if err != nil {
+			return err
 		}
-		fmt.Println()
 
 		chatHistory = append(chatHistory, Message{Role: "assistant", Content: []Content{&Text{Type: "text", Text: text}}})
 
@@ -302,4 +251,47 @@ func (app *env) runChatSession(docsPrompt string) error {
 
 func wrapInXMLTags(text, tag string) string {
 	return fmt.Sprintf("<%s>%s</%s>", tag, text, tag)
+}
+
+func ReadBody(body io.Reader) (string, error) {
+	scanner := bufio.NewScanner(body)
+
+	var text string
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		msgType, payload := parts[0], parts[1]
+
+		switch msgType {
+		case "event":
+		case "data":
+
+			sseData := SSEData{}
+			err := json.Unmarshal([]byte(payload), &sseData)
+			if err != nil {
+				return "", err
+			}
+
+			switch sseData.Type {
+			case "content_block_delta":
+				content := ContentBlockDelta{}
+				err := json.Unmarshal([]byte(payload), &content)
+				if err != nil {
+					return "", err
+				}
+				fmt.Printf("%s", content.Delta.Text)
+				text += content.Delta.Text
+			}
+
+		}
+
+	}
+
+	fmt.Println()
+
+	return text, nil
 }
