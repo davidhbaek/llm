@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime/pprof"
 	"runtime/trace"
 	"strings"
@@ -91,6 +92,17 @@ func (app *env) fromArgs(args []string) error {
 	claudeModel, ok := modelMap[model]
 	if !ok {
 		return errors.New("model must be one of [haiku, sonnet, opus]")
+	}
+
+	// Parse out the prompt if it's a file
+	if filepath.Ext(prompt) == ".txt" {
+		log.Println("reading prompt file")
+		bytes, err := os.ReadFile(prompt)
+		if err != nil {
+			return err
+		}
+
+		prompt = string(bytes)
 	}
 
 	app.userPrompt = prompt
