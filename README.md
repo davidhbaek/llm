@@ -2,11 +2,23 @@
 
 A Go CLI tool to interact with LLMs
 
+## Installation
+
+### Pre-requisites
+
+- [Go](https://go.dev/dl/)
+
+
+
 ## Usage
 
 ### Add your API keys
 
-Create a `.env` file at the root of the repository and add your `ANTHROPIC_API_KEY`
+```
+$ export ANTHROPIC_API_KEY=<your anthropic key>
+  export OPENAI_API_KEY=<your openai key>
+```
+
 
 ### Flags
 - `-p, --prompt`: user prompt
