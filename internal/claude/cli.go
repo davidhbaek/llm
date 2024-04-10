@@ -17,7 +17,6 @@ import (
 	"runtime/trace"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"golang.org/x/sync/errgroup"
 	"rsc.io/pdf"
 )
@@ -48,11 +47,6 @@ func CLI(args []string) int {
 }
 
 func (app *env) fromArgs(args []string) error {
-	err := godotenv.Load()
-	if err != nil {
-		return fmt.Errorf("loading environment: %w", err)
-	}
-
 	fl := flag.NewFlagSet("claude", flag.ContinueOnError)
 
 	var prompt string

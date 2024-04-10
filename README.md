@@ -16,7 +16,7 @@ A Go CLI tool to interact with LLMs
 
 ```
 $ export ANTHROPIC_API_KEY=<your anthropic key>
-  export OPENAI_API_KEY=<your openai key>
+$ export OPENAI_API_KEY=<your openai key>
 ```
 
 
