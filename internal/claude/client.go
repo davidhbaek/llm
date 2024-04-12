@@ -1,10 +1,13 @@
 package claude
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/davidhbaek/llm/internal/wire"
@@ -67,4 +70,48 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 		StatusCode: rsp.StatusCode,
 		Body:       rsp.Body,
 	}, nil
+}
+
+func (c *Client) ReadBody(body io.Reader) (string, error) {
+	fmt.Println("response from ", c.model)
+	scanner := bufio.NewScanner(body)
+
+	var text string
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		parts := strings.SplitN(line, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		msgType, payload := parts[0], parts[1]
+
+		switch msgType {
+		case "event":
+		case "data":
+
+			sseData := SSEData{}
+			err := json.Unmarshal([]byte(payload), &sseData)
+			if err != nil {
+				return "", err
+			}
+
+			switch sseData.Type {
+			case "content_block_delta":
+				content := ContentBlockDelta{}
+				err := json.Unmarshal([]byte(payload), &content)
+				if err != nil {
+					return "", err
+				}
+				fmt.Printf("%s", content.Delta.Text)
+				text += content.Delta.Text
+			}
+
+		}
+
+	}
+
+	fmt.Println()
+
+	return text, nil
 }

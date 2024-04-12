@@ -1,7 +1,6 @@
 package openai_test
 
 import (
-	"io"
 	"net/http"
 	"testing"
 
@@ -12,13 +11,7 @@ import (
 )
 
 func TestSendMessage(t *testing.T) {
-	// imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
-
 	client := openai.NewClient("gpt-3.5-turbo")
-
-	// imgBytes, err := downloadImageFromURL(imgURL)
-	// require.NoError(t, err)
-
 	tests := []struct {
 		Name               string
 		ExpectedStatusCode int
@@ -34,18 +27,8 @@ func TestSendMessage(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, test.ExpectedStatusCode, rsp.StatusCode)
 
-			_, err = openai.ReadBody(rsp.Body)
+			_, err = client.ReadBody(rsp.Body)
 			require.NoError(t, err)
 		})
 	}
-}
-
-func downloadImageFromURL(url string) ([]byte, error) {
-	rsp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer rsp.Body.Close()
-
-	return io.ReadAll(rsp.Body)
 }

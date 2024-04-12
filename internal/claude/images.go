@@ -32,7 +32,7 @@ func (f *fileList) Set(value string) error {
 	return nil
 }
 
-func downloadImage(path string) ([]byte, error) {
+func DownloadImage(path string) ([]byte, error) {
 	buffer := bytes.Buffer{}
 
 	// Download the image from the internet

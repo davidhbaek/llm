@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/davidhbaek/llm/internal/claude"
 	"github.com/davidhbaek/llm/internal/openai"
+	"github.com/davidhbaek/llm/internal/wire"
 )
 
 type env struct {
@@ -99,8 +101,15 @@ func (app *env) fromArgs(args []string) error {
 		return errors.New("model must be one of [haiku, sonnet, opus, gpt]")
 	}
 
-	if modelName == "gpt" {
-		app.client = openai.NewClient("gpt-3.5-turbo")
+	if model == "gpt" {
+		app.client = openai.NewClient(modelName)
+	} else {
+		app.client = claude.NewClient(
+			modelName,
+			claude.NewConfig(
+				"https://api.anthropic.com",
+				os.Getenv("ANTHROPIC_API_KEY")),
+		)
 	}
 
 	// Get the prompt text if they're coming from a file
@@ -134,5 +143,17 @@ func (app *env) fromArgs(args []string) error {
 }
 
 func (app *env) run() error {
+	content := []wire.Content{&wire.Text{Type: "text", Text: app.userPrompt}}
+	messages := []wire.Message{{Role: "user", Content: content}}
+	rsp, err := app.client.SendMessage(messages, app.systemPrompt)
+	if err != nil {
+		return fmt.Errorf("sending prompt: %w", err)
+	}
+
+	_, err = app.client.ReadBody(rsp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response body: %w", err)
+	}
+
 	return nil
 }

@@ -14,13 +14,23 @@ import (
 	"github.com/davidhbaek/llm/internal/wire"
 )
 
+type Config struct {
+	baseURL string
+	apiKey  string
+}
+
 type Client struct {
+	config     Config
 	model      string
 	httpClient *http.Client
 }
 
 func NewClient(model string) *Client {
 	return &Client{
+		config: Config{
+			baseURL: "https//api.openai.com",
+			apiKey:  os.Getenv("OPENAI_API_KEY"),
+		},
 		model: model,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute,
@@ -49,13 +59,13 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", "https://api.openai.com", "/v1/chat/completions"), bytes.NewReader(reqBody))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.config.baseURL, "/v1/chat/completions"), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("OPENAI_API_KEY")))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.config.apiKey))
 
 	rsp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -68,7 +78,8 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 	}, nil
 }
 
-func ReadBody(body io.Reader) (string, error) {
+func (c *Client) ReadBody(body io.Reader) (string, error) {
+	fmt.Println("response from ", c.model)
 	scanner := bufio.NewScanner(body)
 
 	var text string
