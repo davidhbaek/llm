@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davidhbaek/llm/internal/llm"
+	"github.com/davidhbaek/llm/internal/wire"
 )
 
 type Client struct {
@@ -33,15 +33,15 @@ func NewClient(model string) *Client {
 	}
 }
 
-var _ llm.Client = &Client{}
+// var _ llm.Client = &Client{}
 
-func (c *Client) SendMessage(messages []llm.Message, systemPrompt string) (*llm.Response, error) {
+func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
 	reqBody, err := json.Marshal(struct {
-		Model    string        `json:"model"`
-		Messages []llm.Message `json:"messages"`
-		Stream   bool          `json:"stream"`
+		Model    string         `json:"model"`
+		Messages []wire.Message `json:"messages"`
+		Stream   bool           `json:"stream"`
 	}{
-		Model:    "gpt-3.5-turbo",
+		Model:    c.model,
 		Messages: messages,
 		Stream:   true,
 	})
@@ -62,7 +62,7 @@ func (c *Client) SendMessage(messages []llm.Message, systemPrompt string) (*llm.
 		return nil, err
 	}
 
-	return &llm.Response{
+	return &wire.Response{
 		StatusCode: rsp.StatusCode,
 		Body:       rsp.Body,
 	}, nil

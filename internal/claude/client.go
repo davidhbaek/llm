@@ -6,14 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
-)
 
-// Model names for the Claude API
-// https://docs.anthropic.com/claude/docs/models-overview#model-comparison
-const (
-	OPUS   = "claude-3-opus-20240229"
-	SONNET = "claude-3-sonnet-20240229"
-	HAIKU  = "claude-3-haiku-20240307"
+	"github.com/davidhbaek/llm/internal/wire"
 )
 
 type Client struct {
@@ -37,8 +31,14 @@ func NewClient(model string, config *Config) *Client {
 	}
 }
 
-func (c *Client) SendMessage(messages []Message, systemPrompt string) (*Response, error) {
-	reqBody, err := json.Marshal(Request{
+func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
+	reqBody, err := json.Marshal(struct {
+		Model        string         `json:"model"`
+		MaxTokens    int            `json:"max_tokens"`
+		SystemPrompt string         `json:"system"`
+		Messages     []wire.Message `json:"messages"`
+		Stream       bool           `json:"stream"`
+	}{
 		Model:        c.model,
 		MaxTokens:    2048,
 		SystemPrompt: systemPrompt,
@@ -63,7 +63,7 @@ func (c *Client) SendMessage(messages []Message, systemPrompt string) (*Response
 		return nil, err
 	}
 
-	return &Response{
+	return &wire.Response{
 		StatusCode: rsp.StatusCode,
 		Body:       rsp.Body,
 	}, nil

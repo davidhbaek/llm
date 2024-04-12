@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/davidhbaek/llm/internal/llm"
 	"github.com/davidhbaek/llm/internal/openai"
+	"github.com/davidhbaek/llm/internal/wire"
 
 	"github.com/stretchr/testify/require"
 )
@@ -22,16 +22,10 @@ func TestSendMessage(t *testing.T) {
 	tests := []struct {
 		Name               string
 		ExpectedStatusCode int
-		InputMsg           []llm.Message
+		InputMsg           []wire.Message
 		SystemPrompt       string
 	}{
-		{Name: "Hello World", ExpectedStatusCode: http.StatusOK, InputMsg: []llm.Message{{Role: "user", Content: []llm.Content{&llm.Text{Type: "text", Text: "Hello World"}}}}},
-		// {Name: "Empty input should return bad request", ExpectedStatusCode: http.StatusBadRequest, InputMsg: []llm.Message{{}}}, // empty prompt
-		// {Name: "Successful prompt about an image", ExpectedStatusCode: http.StatusOK, InputMsg: []llm.Message{
-		// 	{Role: "user", Content: []llm.Content{
-		// 		&llm.Text{Type: "text", Text: "can you describe this image"},
-		// 	}},
-		// }},
+		{Name: "Hello World", ExpectedStatusCode: http.StatusOK, InputMsg: []wire.Message{{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: "Hello World"}}}}},
 	}
 
 	for _, test := range tests {

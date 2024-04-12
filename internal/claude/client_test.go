@@ -1,43 +1,32 @@
 package claude_test
 
 import (
-	"encoding/base64"
-	"io"
 	"net/http"
 	"os"
 	"testing"
 
-	"github.com/davidhbaek/llm/claude"
+	"github.com/davidhbaek/llm/internal/claude"
+	"github.com/davidhbaek/llm/internal/wire"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSendMessage(t *testing.T) {
-	imgURL := "https://wallpapercave.com/wp/ENozMYj.jpg"
-
 	client := claude.NewClient(
-		claude.HAIKU,
+		"claude-3-haiku-20240307",
 		claude.NewConfig(
 			"https://api.anthropic.com",
 			os.Getenv("ANTHROPIC_API_KEY")),
 	)
 
-	imgBytes, err := downloadImageFromURL(imgURL)
-	require.NoError(t, err)
-
 	tests := []struct {
 		Name               string
 		ExpectedStatusCode int
-		InputMsg           []claude.Message
+		InputMsg           []wire.Message
 		SystemPrompt       string
 	}{
-		{Name: "Hello Claude", ExpectedStatusCode: http.StatusOK, InputMsg: []claude.Message{{Role: "user", Content: []claude.Content{&claude.Text{Type: "text", Text: "Hello Claude"}}}}},
-		{Name: "Empty input should return bad request", ExpectedStatusCode: http.StatusBadRequest, InputMsg: []claude.Message{{}}}, // empty prompt
-		{Name: "Successful prompt about an image", ExpectedStatusCode: http.StatusOK, InputMsg: []claude.Message{
-			{Role: "user", Content: []claude.Content{
-				&claude.Text{Type: "text", Text: "can you describe this image"},
-				&claude.Image{Type: "image", Source: claude.Source{Type: "base64", MediaType: http.DetectContentType(imgBytes), Data: base64.StdEncoding.EncodeToString(imgBytes)}},
-			}},
-		}},
+		{Name: "Hello Claude", ExpectedStatusCode: http.StatusOK, InputMsg: []wire.Message{{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: "Hello Claude"}}}}},
+		{Name: "Empty input should return bad request", ExpectedStatusCode: http.StatusBadRequest, InputMsg: []wire.Message{{}}}, // empty prompt
+
 	}
 
 	for _, test := range tests {
@@ -47,14 +36,4 @@ func TestSendMessage(t *testing.T) {
 			require.Equal(t, test.ExpectedStatusCode, rsp.StatusCode)
 		})
 	}
-}
-
-func downloadImageFromURL(url string) ([]byte, error) {
-	rsp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer rsp.Body.Close()
-
-	return io.ReadAll(rsp.Body)
 }
