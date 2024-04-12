@@ -3,7 +3,7 @@ package llm
 import (
 	"io"
 
-	"github.com/davidhbaek/llm/internal/claude"
+	"github.com/davidhbaek/llm/internal/anthropic"
 	"github.com/davidhbaek/llm/internal/openai"
 	"github.com/davidhbaek/llm/internal/wire"
 )
@@ -18,5 +18,5 @@ type Client interface {
 // Enforce interface compliance for these implementations of the Client interface
 var (
 	_ Client = &openai.Client{}
-	_ Client = &claude.Client{}
+	_ Client = &anthropic.Client{}
 )

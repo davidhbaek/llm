@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/davidhbaek/llm/internal/claude"
+	"github.com/davidhbaek/llm/internal/anthropic"
 	"github.com/davidhbaek/llm/internal/openai"
 	"github.com/davidhbaek/llm/internal/wire"
 )
@@ -104,7 +104,7 @@ func (app *env) fromArgs(args []string) error {
 	if model == "gpt" {
 		app.client = openai.NewClient(modelName)
 	} else {
-		app.client = claude.NewClient(modelName)
+		app.client = anthropic.NewClient(modelName)
 	}
 
 	// Get the prompt text if they're coming from a file

@@ -28,7 +28,7 @@ type Client struct {
 func NewClient(model string) *Client {
 	return &Client{
 		config: Config{
-			baseURL: "https//api.openai.com",
+			baseURL: "https://api.openai.com",
 			apiKey:  os.Getenv("OPENAI_API_KEY"),
 		},
 		model: model,
@@ -42,8 +42,6 @@ func NewClient(model string) *Client {
 		},
 	}
 }
-
-// var _ llm.Client = &Client{}
 
 func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
 	reqBody, err := json.Marshal(struct {
@@ -59,7 +57,7 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 		return nil, err
 	}
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.config.baseURL, "/v1/chat/completions"), bytes.NewReader(reqBody))
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("%s/%s", c.config.baseURL, "v1/chat/completions"), bytes.NewReader(reqBody))
 	if err != nil {
 		return nil, err
 	}
