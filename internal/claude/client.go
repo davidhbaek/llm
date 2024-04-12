@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -19,10 +20,13 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(model string, config *Config) *Client {
+func NewClient(model string) *Client {
 	return &Client{
-		config: config,
-		model:  model,
+		config: &Config{
+			baseURL: "https://api.anthropic.com",
+			apiKey:  os.Getenv("ANTHROPIC_API_KEY"),
+		},
+		model: model,
 		httpClient: &http.Client{
 			Timeout: 5 * time.Minute,
 			Transport: &http.Transport{

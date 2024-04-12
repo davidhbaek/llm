@@ -104,12 +104,7 @@ func (app *env) fromArgs(args []string) error {
 	if model == "gpt" {
 		app.client = openai.NewClient(modelName)
 	} else {
-		app.client = claude.NewClient(
-			modelName,
-			claude.NewConfig(
-				"https://api.anthropic.com",
-				os.Getenv("ANTHROPIC_API_KEY")),
-		)
+		app.client = claude.NewClient(modelName)
 	}
 
 	// Get the prompt text if they're coming from a file

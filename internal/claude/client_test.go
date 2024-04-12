@@ -2,7 +2,6 @@ package claude_test
 
 import (
 	"net/http"
-	"os"
 	"testing"
 
 	"github.com/davidhbaek/llm/internal/claude"
@@ -11,12 +10,7 @@ import (
 )
 
 func TestSendMessage(t *testing.T) {
-	client := claude.NewClient(
-		"claude-3-haiku-20240307",
-		claude.NewConfig(
-			"https://api.anthropic.com",
-			os.Getenv("ANTHROPIC_API_KEY")),
-	)
+	client := claude.NewClient("claude-3-haiku-20240307")
 
 	tests := []struct {
 		Name               string
