@@ -1,10 +1,12 @@
 package llm
 
 import (
+	"encoding/base64"
 	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -139,6 +141,28 @@ func (app *env) fromArgs(args []string) error {
 
 func (app *env) run() error {
 	content := []wire.Content{&wire.Text{Type: "text", Text: app.userPrompt}}
+
+	for _, path := range app.images {
+		imgBytes, err := anthropic.DownloadImage(path)
+		if err != nil {
+			return err
+		}
+
+		content = append(content, &wire.AnthropicImage{
+			Type: "image",
+			Source: struct {
+				Type      string `json:"type"`
+				MediaType string `json:"media_type"`
+				Data      string `json:"data"`
+			}{
+				Type:      "base64",
+				MediaType: http.DetectContentType(imgBytes),
+				Data:      base64.StdEncoding.EncodeToString(imgBytes),
+			},
+		})
+
+	}
+
 	messages := []wire.Message{{Role: "user", Content: content}}
 	rsp, err := app.client.SendMessage(messages, app.systemPrompt)
 	if err != nil {

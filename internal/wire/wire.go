@@ -37,6 +37,21 @@ func (I *Image) GetType() string {
 	return "image"
 }
 
+type AnthropicImage struct {
+	Type   string `json:"type"`
+	Source struct {
+		Type      string `json:"type"`
+		MediaType string `json:"media_type"`
+		Data      string `json:"data"`
+	} `json:"source"`
+}
+
+var _ Content = &Image{}
+
+func (I *AnthropicImage) GetType() string {
+	return "image"
+}
+
 type Response struct {
 	StatusCode int
 	Body       io.Reader

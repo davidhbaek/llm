@@ -77,7 +77,6 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 }
 
 func (c *Client) ReadBody(body io.Reader) (string, error) {
-	fmt.Println("response from ", c.model)
 	scanner := bufio.NewScanner(body)
 
 	var text string
