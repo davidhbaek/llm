@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/davidhbaek/llm/internal/anthropic"
 	"github.com/davidhbaek/llm/internal/wire"
@@ -141,8 +140,16 @@ func (app *env) run() error {
 
 	for _, path := range app.images {
 		// TODO: Re-factor to make this model agnostic
-		// For images, Anthropic requires a base64 encoded string of the image bytes
-		if app.client.Model() != GPT4 {
+		// For images, GPT-4 models just need the image URL
+		if app.client.Model() == GPT4 {
+			content = append(content, &wire.OpenAIImage{
+				Type: "image_url",
+				ImageURL: struct {
+					URL string `json:"url"`
+				}{URL: path},
+			})
+			// While Anthropic requires a base64 encoded string of the image bytes
+		} else {
 			imgBytes, err := anthropic.DownloadImage(path)
 			if err != nil {
 				return err
@@ -160,23 +167,14 @@ func (app *env) run() error {
 					Data:      base64.StdEncoding.EncodeToString(imgBytes),
 				},
 			})
-			// While GPT-4 models just need the image URL
-		} else {
-			content = append(content, &wire.OpenAIImage{
-				Type: "image_url",
-				ImageURL: struct {
-					URL string `json:"url"`
-				}{
-					URL: path,
-				},
-			})
+
 		}
 	}
 
 	if app.isChat {
 		err := app.runChatSession()
 		if err != nil {
-			return err
+			return fmt.Errorf("running chat session: %w", err)
 		}
 	}
 
@@ -195,30 +193,29 @@ func (app *env) run() error {
 }
 
 func (app *env) runChatSession() error {
-	log.Println("starting chat session")
+	log.Printf("Beginning chat session with model=%s", app.client.Model())
 	chatHistory := []wire.Message{}
-	reader := bufio.NewReader(os.Stdin)
+	input := bufio.NewReader(os.Stdin)
 
 	for {
-
-		input, err := reader.ReadString('\n')
+		prompt, err := input.ReadString('\n')
 		if err != nil {
 			return err
 		}
 
-		chatHistory = append(chatHistory, wire.Message{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: strings.TrimSpace(input)}}})
+		chatHistory = append(chatHistory, wire.Message{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: prompt}}})
 
 		rsp, err := app.client.SendMessage(chatHistory, app.systemPrompt)
 		if err != nil {
-			return err
+			return fmt.Errorf("sending chat prompt: %w", err)
 		}
 
-		text, err := app.client.ReadBody(rsp.Body)
+		chatRsp, err := app.client.ReadBody(rsp.Body)
 		if err != nil {
-			return err
+			return fmt.Errorf("reading chat response body: %w", err)
 		}
 
-		chatHistory = append(chatHistory, wire.Message{Role: "assistant", Content: []wire.Content{&wire.Text{Type: "text", Text: text}}})
+		chatHistory = append(chatHistory, wire.Message{Role: "assistant", Content: []wire.Content{&wire.Text{Type: "text", Text: chatRsp}}})
 
 	}
 }
@@ -227,7 +224,7 @@ func setupClient(model string) Client {
 	config := NewClientConfig()
 	factory, ok := config.Models[model]
 	if !ok {
-		log.Fatalf("UNSUPPORTED MODEL %s", model)
+		log.Fatalf("unsupported model: %s", model)
 	}
 
 	return factory(model)

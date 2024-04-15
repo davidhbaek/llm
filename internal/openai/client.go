@@ -97,6 +97,8 @@ func (c *Client) ReadBody(body io.Reader) (string, error) {
 			break
 		}
 
+		// TODO: Add error response handling
+
 		response := struct {
 			ID                string `json:"id"`
 			Object            string `json:"-"`

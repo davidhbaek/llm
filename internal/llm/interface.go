@@ -17,7 +17,7 @@ type Client interface {
 	Model() string
 }
 
-// Enforce interface compliance for these implementations of the Client interface
+// Enforce interface compliance
 var (
 	_ Client = &openai.Client{}
 	_ Client = &anthropic.Client{}
