@@ -4,13 +4,13 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/davidhbaek/llm/internal/claude"
+	"github.com/davidhbaek/llm/internal/anthropic"
 	"github.com/davidhbaek/llm/internal/wire"
 	"github.com/stretchr/testify/require"
 )
 
 func TestSendMessage(t *testing.T) {
-	client := claude.NewClient("claude-3-haiku-20240307")
+	client := anthropic.NewClient("claude-3-haiku-20240307")
 
 	tests := []struct {
 		Name               string
