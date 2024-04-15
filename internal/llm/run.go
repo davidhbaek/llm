@@ -17,6 +17,7 @@ import (
 
 type env struct {
 	client       Client
+	model        string
 	userPrompt   string
 	systemPrompt string
 	images       fileList
@@ -57,7 +58,7 @@ const (
 	OPUS   = "claude-3-opus-20240229"
 	SONNET = "claude-3-sonnet-20240229"
 	HAIKU  = "claude-3-haiku-20240307"
-	GPT    = "gpt-3.5-turbo"
+	GPT    = "gpt-4-turbo"
 )
 
 func (app *env) fromArgs(args []string) error {
@@ -109,6 +110,8 @@ func (app *env) fromArgs(args []string) error {
 		app.client = anthropic.NewClient(modelName)
 	}
 
+	app.model = modelName
+
 	// Get the prompt text if they're coming from a file
 	if filepath.Ext(prompt) == ".txt" {
 		log.Printf("reading prompt file at path=%s", prompt)
@@ -143,24 +146,36 @@ func (app *env) run() error {
 	content := []wire.Content{&wire.Text{Type: "text", Text: app.userPrompt}}
 
 	for _, path := range app.images {
-		imgBytes, err := anthropic.DownloadImage(path)
-		if err != nil {
-			return err
+		// TODO: Re-factor to make this model agnostic
+		if app.model != GPT {
+			imgBytes, err := anthropic.DownloadImage(path)
+			if err != nil {
+				return err
+			}
+
+			content = append(content, &wire.AnthropicImage{
+				Type: "image",
+				Source: struct {
+					Type      string `json:"type"`
+					MediaType string `json:"media_type"`
+					Data      string `json:"data"`
+				}{
+					Type:      "base64",
+					MediaType: http.DetectContentType(imgBytes),
+					Data:      base64.StdEncoding.EncodeToString(imgBytes),
+				},
+			})
+
+		} else {
+			content = append(content, &wire.OpenAIImage{
+				Type: "image_url",
+				ImageURL: struct {
+					URL string `json:"url"`
+				}{
+					URL: path,
+				},
+			})
 		}
-
-		content = append(content, &wire.AnthropicImage{
-			Type: "image",
-			Source: struct {
-				Type      string `json:"type"`
-				MediaType string `json:"media_type"`
-				Data      string `json:"data"`
-			}{
-				Type:      "base64",
-				MediaType: http.DetectContentType(imgBytes),
-				Data:      base64.StdEncoding.EncodeToString(imgBytes),
-			},
-		})
-
 	}
 
 	messages := []wire.Message{{Role: "user", Content: content}}

@@ -24,16 +24,16 @@ func (t *Text) GetType() string {
 	return "text"
 }
 
-type Image struct {
-	Type   string `json:"type"`
-	Source struct {
+type OpenAIImage struct {
+	Type     string `json:"type"`
+	ImageURL struct {
 		URL string `json:"url"`
 	} `json:"image_url"`
 }
 
-var _ Content = &Image{}
+var _ Content = &OpenAIImage{}
 
-func (I *Image) GetType() string {
+func (I *OpenAIImage) GetType() string {
 	return "image"
 }
 
@@ -46,7 +46,7 @@ type AnthropicImage struct {
 	} `json:"source"`
 }
 
-var _ Content = &Image{}
+var _ Content = &AnthropicImage{}
 
 func (I *AnthropicImage) GetType() string {
 	return "image"
