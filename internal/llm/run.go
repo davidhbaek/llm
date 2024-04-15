@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"bufio"
 	"encoding/base64"
 	"errors"
 	"flag"
@@ -9,15 +10,14 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/davidhbaek/llm/internal/anthropic"
-	"github.com/davidhbaek/llm/internal/openai"
 	"github.com/davidhbaek/llm/internal/wire"
 )
 
 type env struct {
 	client       Client
-	model        string
 	userPrompt   string
 	systemPrompt string
 	images       fileList
@@ -58,7 +58,7 @@ const (
 	OPUS   = "claude-3-opus-20240229"
 	SONNET = "claude-3-sonnet-20240229"
 	HAIKU  = "claude-3-haiku-20240307"
-	GPT    = "gpt-4-turbo"
+	GPT4   = "gpt-4-turbo"
 )
 
 func (app *env) fromArgs(args []string) error {
@@ -72,9 +72,9 @@ func (app *env) fromArgs(args []string) error {
 	fl.StringVar(&system, "s", "", "system prompt to  Claude")
 	fl.StringVar(&system, "system", "", "system prompt to  Claude")
 
-	var model string
-	fl.StringVar(&model, "m", "haiku", "the Claude model to use")
-	fl.StringVar(&model, "model", "haiku", "the Claude model to use")
+	var inputModel string
+	fl.StringVar(&inputModel, "m", "haiku", "the Claude model to use")
+	fl.StringVar(&inputModel, "model", "haiku", "the Claude model to use")
 
 	var images fileList
 	fl.Var(&images, "i", "list of image paths (filenames and URLs)")
@@ -92,25 +92,19 @@ func (app *env) fromArgs(args []string) error {
 		return fmt.Errorf("parsing command line arguments: %w", err)
 	}
 
-	modelMap := map[string]string{
+	models := map[string]string{
 		"haiku":  HAIKU,
 		"sonnet": SONNET,
 		"opus":   OPUS,
-		"gpt":    GPT,
+		"gpt4":   GPT4,
 	}
 
-	modelName, ok := modelMap[model]
+	model, ok := models[inputModel]
 	if !ok {
-		return errors.New("model must be one of [haiku, sonnet, opus, gpt]")
+		return errors.New("input model must be one of [haiku, sonnet, opus, gpt4]")
 	}
 
-	if model == "gpt" {
-		app.client = openai.NewClient(modelName)
-	} else {
-		app.client = anthropic.NewClient(modelName)
-	}
-
-	app.model = modelName
+	app.client = setupClient(model)
 
 	// Get the prompt text if they're coming from a file
 	if filepath.Ext(prompt) == ".txt" {
@@ -147,7 +141,8 @@ func (app *env) run() error {
 
 	for _, path := range app.images {
 		// TODO: Re-factor to make this model agnostic
-		if app.model != GPT {
+		// For images, Anthropic requires a base64 encoded string of the image bytes
+		if app.client.Model() != GPT4 {
 			imgBytes, err := anthropic.DownloadImage(path)
 			if err != nil {
 				return err
@@ -165,7 +160,7 @@ func (app *env) run() error {
 					Data:      base64.StdEncoding.EncodeToString(imgBytes),
 				},
 			})
-
+			// While GPT-4 models just need the image URL
 		} else {
 			content = append(content, &wire.OpenAIImage{
 				Type: "image_url",
@@ -175,6 +170,13 @@ func (app *env) run() error {
 					URL: path,
 				},
 			})
+		}
+	}
+
+	if app.isChat {
+		err := app.runChatSession()
+		if err != nil {
+			return err
 		}
 	}
 
@@ -190,4 +192,43 @@ func (app *env) run() error {
 	}
 
 	return nil
+}
+
+func (app *env) runChatSession() error {
+	log.Println("starting chat session")
+	chatHistory := []wire.Message{}
+	reader := bufio.NewReader(os.Stdin)
+
+	for {
+
+		input, err := reader.ReadString('\n')
+		if err != nil {
+			return err
+		}
+
+		chatHistory = append(chatHistory, wire.Message{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: strings.TrimSpace(input)}}})
+
+		rsp, err := app.client.SendMessage(chatHistory, app.systemPrompt)
+		if err != nil {
+			return err
+		}
+
+		text, err := app.client.ReadBody(rsp.Body)
+		if err != nil {
+			return err
+		}
+
+		chatHistory = append(chatHistory, wire.Message{Role: "assistant", Content: []wire.Content{&wire.Text{Type: "text", Text: text}}})
+
+	}
+}
+
+func setupClient(model string) Client {
+	config := NewClientConfig()
+	factory, ok := config.Models[model]
+	if !ok {
+		log.Fatalf("UNSUPPORTED MODEL %s", model)
+	}
+
+	return factory(model)
 }

@@ -38,6 +38,10 @@ func NewClient(model string) *Client {
 	}
 }
 
+func (c *Client) Model() string {
+	return c.model
+}
+
 func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
 	reqBody, err := json.Marshal(struct {
 		Model        string         `json:"model"`

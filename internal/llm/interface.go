@@ -13,6 +13,8 @@ type Client interface {
 	SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error)
 	// Define how to read the response body from the LLM
 	ReadBody(body io.Reader) (string, error)
+	// Return the underlying LLM being prompted
+	Model() string
 }
 
 // Enforce interface compliance for these implementations of the Client interface

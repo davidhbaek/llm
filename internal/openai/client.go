@@ -43,6 +43,10 @@ func NewClient(model string) *Client {
 	}
 }
 
+func (c *Client) Model() string {
+	return c.model
+}
+
 func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
 	reqBody, err := json.Marshal(struct {
 		Model    string         `json:"model"`
@@ -77,7 +81,6 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 }
 
 func (c *Client) ReadBody(body io.Reader) (string, error) {
-	fmt.Println("response from ", c.model)
 	scanner := bufio.NewScanner(body)
 
 	var text string
