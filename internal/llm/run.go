@@ -2,6 +2,7 @@ package llm
 
 import (
 	"bufio"
+	"context"
 	"encoding/base64"
 	"errors"
 	"flag"
@@ -13,6 +14,8 @@ import (
 
 	"github.com/davidhbaek/llm/internal/anthropic"
 	"github.com/davidhbaek/llm/internal/wire"
+	"golang.org/x/sync/errgroup"
+	"rsc.io/pdf"
 )
 
 type env struct {
@@ -136,6 +139,40 @@ func (app *env) fromArgs(args []string) error {
 }
 
 func (app *env) run() error {
+	docs := make([]wire.Text, len(app.docs))
+
+	eg, ctx := errgroup.WithContext(context.Background())
+
+	for idx, path := range app.docs {
+		idx, path := idx, path
+		eg.Go(func() error {
+			log.Println("ingesting this doc:", path)
+			var text string
+			file, err := pdf.Open(path)
+			if err != nil {
+				return fmt.Errorf("failed to open file at path=%s: %w", path, err)
+			}
+
+			for i := 1; i <= file.NumPage(); i++ {
+				textSlice := file.Page(i).Content().Text
+				for _, t := range textSlice {
+					text += t.S + "\n"
+				}
+			}
+
+			docs[idx] = wire.Text{
+				Type: "text",
+				Text: text,
+			}
+
+			return nil
+		})
+	}
+
+	err := eg.Wait()
+	if err != nil {
+		return fmt.Errorf("extracting text from document: %w", err)
+	}
 	content := []wire.Content{&wire.Text{Type: "text", Text: app.userPrompt}}
 
 	for _, path := range app.images {
@@ -172,14 +209,14 @@ func (app *env) run() error {
 	}
 
 	if app.isChat {
-		err := app.runChatSession()
+		err := app.runChatSession(ctx)
 		if err != nil {
 			return fmt.Errorf("running chat session: %w", err)
 		}
 	}
 
 	messages := []wire.Message{{Role: "user", Content: content}}
-	rsp, err := app.client.SendMessage(messages, app.systemPrompt)
+	rsp, err := app.client.SendMessage(ctx, messages, app.systemPrompt)
 	if err != nil {
 		return fmt.Errorf("sending prompt: %w", err)
 	}
@@ -192,7 +229,7 @@ func (app *env) run() error {
 	return nil
 }
 
-func (app *env) runChatSession() error {
+func (app *env) runChatSession(ctx context.Context) error {
 	log.Printf("Beginning chat session with model=%s", app.client.Model())
 	chatHistory := []wire.Message{}
 	input := bufio.NewReader(os.Stdin)
@@ -205,7 +242,7 @@ func (app *env) runChatSession() error {
 
 		chatHistory = append(chatHistory, wire.Message{Role: "user", Content: []wire.Content{&wire.Text{Type: "text", Text: prompt}}})
 
-		rsp, err := app.client.SendMessage(chatHistory, app.systemPrompt)
+		rsp, err := app.client.SendMessage(ctx, chatHistory, app.systemPrompt)
 		if err != nil {
 			return fmt.Errorf("sending chat prompt: %w", err)
 		}

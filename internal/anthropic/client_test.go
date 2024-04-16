@@ -1,6 +1,7 @@
 package anthropic_test
 
 import (
+	"context"
 	"net/http"
 	"testing"
 
@@ -25,7 +26,7 @@ func TestSendMessage(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			rsp, err := client.SendMessage(test.InputMsg, test.SystemPrompt)
+			rsp, err := client.SendMessage(context.Background(), test.InputMsg, test.SystemPrompt)
 			require.NoError(t, err)
 			require.Equal(t, test.ExpectedStatusCode, rsp.StatusCode)
 		})

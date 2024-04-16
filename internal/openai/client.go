@@ -3,6 +3,7 @@ package openai
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -47,7 +48,7 @@ func (c *Client) Model() string {
 	return c.model
 }
 
-func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wire.Response, error) {
+func (c *Client) SendMessage(ctx context.Context, messages []wire.Message, systemPrompt string) (*wire.Response, error) {
 	reqBody, err := json.Marshal(struct {
 		Model    string         `json:"model"`
 		Messages []wire.Message `json:"messages"`
@@ -57,6 +58,8 @@ func (c *Client) SendMessage(messages []wire.Message, systemPrompt string) (*wir
 		Messages: messages,
 		Stream:   true,
 	})
+
+	fmt.Println(string(reqBody))
 	if err != nil {
 		return nil, err
 	}
