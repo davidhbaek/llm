@@ -142,7 +142,6 @@ func (app *env) run() error {
 	docs := make([]wire.Text, len(app.docs))
 
 	eg, ctx := errgroup.WithContext(context.Background())
-
 	for idx, path := range app.docs {
 		idx, path := idx, path
 		eg.Go(func() error {
@@ -173,6 +172,13 @@ func (app *env) run() error {
 	if err != nil {
 		return fmt.Errorf("extracting text from document: %w", err)
 	}
+
+	var docsPrompt string
+	for _, doc := range docs {
+		d := fmt.Sprintf("%s\n", wrapInXMLTags(doc.Text, "document"))
+		docsPrompt += d
+	}
+
 	content := []wire.Content{&wire.Text{Type: "text", Text: app.userPrompt}}
 
 	for _, path := range app.images {
@@ -215,8 +221,10 @@ func (app *env) run() error {
 		}
 	}
 
+	systemPrompt := fmt.Sprintf(wrapInXMLTags(docsPrompt, "documents"), app.systemPrompt)
 	messages := []wire.Message{{Role: "user", Content: content}}
-	rsp, err := app.client.SendMessage(ctx, messages, app.systemPrompt)
+
+	rsp, err := app.client.SendMessage(ctx, messages, systemPrompt)
 	if err != nil {
 		return fmt.Errorf("sending prompt: %w", err)
 	}
@@ -265,4 +273,8 @@ func setupClient(model string) Client {
 	}
 
 	return factory(model)
+}
+
+func wrapInXMLTags(text, tag string) string {
+	return fmt.Sprintf("<%s>%s</%s>", tag, text, tag)
 }

@@ -49,6 +49,14 @@ func (c *Client) Model() string {
 }
 
 func (c *Client) SendMessage(ctx context.Context, messages []wire.Message, systemPrompt string) (*wire.Response, error) {
+	// The OpenAI API doesn't have a separate field for system prompts like the Anthropic API does
+	if len(systemPrompt) > 0 {
+		messages = append(messages, wire.Message{
+			Role:    "system",
+			Content: []wire.Content{&wire.Text{Type: "text", Text: systemPrompt}},
+		})
+	}
+
 	reqBody, err := json.Marshal(struct {
 		Model    string         `json:"model"`
 		Messages []wire.Message `json:"messages"`
@@ -58,8 +66,6 @@ func (c *Client) SendMessage(ctx context.Context, messages []wire.Message, syste
 		Messages: messages,
 		Stream:   true,
 	})
-
-	fmt.Println(string(reqBody))
 	if err != nil {
 		return nil, err
 	}
