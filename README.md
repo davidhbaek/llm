@@ -31,11 +31,23 @@ $ go build -o llm cmd/llm/main.go
 $ ./llm -m haiku -p hello
 ```
 
+### Provide a PDF as context
+
+```
+$./llm -d <path/to/pdf> -p "summarize this document" -m gpt4
+```
+
+### Start a chat session
+
+```
+$./llm -c -m gpt4
+```
 ### Flags
 - `-p, --prompt`: user prompt
 - `-s, --system`: system prompt
 - `-i, --image`: filepath or URL of image
 - `-d, --document`: filepath of document (PDF)
-- `-m, --model`: name of LLM to use (defaults to Claude's Haiku)
+- `-m, --model`: name of LLM to use [gpt4, haiku, sonnet, opus]
+- `-c, --chat`: start an interactive chat session
 
 
