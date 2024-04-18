@@ -7,12 +7,15 @@ A Go CLI tool to interact with LLMs
 ### Pre-requisites
 
 - [Go](https://go.dev/dl/)
-
-
+- API keys for your LLM provider
 
 ## Usage
 
-### Add your API keys
+### Populate your API keys
+
+Add your API keys for the LLM provider you want to use
+
+Models currently supported are from [OpenAI](https://openai.com/) and [Anthropic](https://www.anthropic.com/)
 
 ```
 $ export ANTHROPIC_API_KEY=<your anthropic key>
@@ -28,20 +31,21 @@ $ go build -o llm cmd/llm/main.go
 ### Send a prompt 
 
 ```
-$ ./llm -m haiku -p hello
+$ ./llm -m gpt4 -p hello
 ```
 
 ### Provide a PDF as context
 
 ```
-$./llm -d <path/to/pdf> -p "summarize this document" -m gpt4
+$./llm -m gpt4 -d <path/to/pdf> -p "summarize this document"
 ```
 
 ### Start a chat session
 
 ```
-$./llm -c -m gpt4
+$./llm -m gpt4 -c
 ```
+
 ### Flags
 - `-p, --prompt`: user prompt
 - `-s, --system`: system prompt
