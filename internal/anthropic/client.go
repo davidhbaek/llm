@@ -88,12 +88,31 @@ func (c *Client) ReadBody(body io.Reader) (string, error) {
 	for scanner.Scan() {
 		line := scanner.Text()
 
+		// The Anthropic API doesn't return a msgType key:value pair for errors
+		// Only a JSON body
+		if strings.Contains(line, "error") {
+			errRsp := struct {
+				Type  string `json:"type"`
+				Error struct {
+					Type    string `json:"type"`
+					Message string `json:"message"`
+				} `json:"error"`
+			}{}
+
+			err := json.Unmarshal([]byte(line), &errRsp)
+			if err != nil {
+				return "", err
+			}
+
+			fmt.Printf("error from Anthropic API: type=%s message=%s", errRsp.Error.Type, errRsp.Error.Message)
+			return "", nil
+		}
+
 		parts := strings.SplitN(line, ":", 2)
 		if len(parts) != 2 {
 			continue
 		}
 		msgType, payload := parts[0], parts[1]
-
 		switch msgType {
 		case "event":
 		case "data":
